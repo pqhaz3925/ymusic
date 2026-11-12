@@ -6,4 +6,4 @@ ios/Frameworks/
 mac/build/
 mac/*.xcodeproj/
 local.env
-screens/
+/screens/
