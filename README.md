@@ -8,6 +8,16 @@
 > Проект не связан с Яндексом. Нужен собственный аккаунт; полные треки, высокое качество и
 > офлайн сервер отдаёт только при активной подписке Плюс — клиент этого не обходит.
 
+<p align="center">
+  <img src="docs/screens/home.jpg" width="24%" alt="Главная с «Моей волной»">
+  <img src="docs/screens/player.jpg" width="24%" alt="Плеер">
+  <img src="docs/screens/tuning.jpg" width="24%" alt="Настройка «Моей волны»">
+  <img src="docs/screens/collection.jpg" width="24%" alt="Коллекция">
+</p>
+<p align="center">
+  <img src="docs/screens/mac.jpg" width="80%" alt="Клиент для Mac">
+</p>
+
 ## Что умеет
 
 - Главная с «Моей волной» (включая настройку по занятию, характеру, настроению и языку),
