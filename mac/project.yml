@@ -13,6 +13,8 @@ settings:
     # Set per machine: scripts read YM_TEAM_ID from local.env (see README).
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
+    # The Rust core is built for Apple silicon only (see core/build-xcframework.sh).
+    ARCHS: arm64
 targets:
   # UniFFI-generated Swift bindings in their own module, NOT main-actor isolated by default
   # (the app target is): FFI calls and record lifting stay off the main thread. Same as iOS.

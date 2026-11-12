@@ -50,7 +50,8 @@
 core/build-xcframework.sh                 # ядро → ios/Frameworks/YmCore.xcframework + Swift-биндинги
 echo 'YM_TEAM_ID=XXXXXXXXXX' > local.env  # ваш Apple Developer Team ID
 scripts/deploy-ios.sh --launch            # собрать и поставить на подключённый iPhone
-scripts/build-mac.sh --run                # собрать и запустить на Mac
+scripts/build-mac.sh --run                # собрать и запустить на Mac (Debug)
+scripts/install-mac.sh --open             # Release-сборка в /Applications (только Apple Silicon)
 ```
 
 Вход — через OAuth Яндекса внутри приложения.

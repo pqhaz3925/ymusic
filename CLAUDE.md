@@ -25,7 +25,8 @@ UI language is Russian; code comments are English.
 - iPhone: `scripts/deploy-ios.sh [--launch] [-- <launch args>]` (signed Debug build → connected iPhone).
 - Compile check without a device:
   `xcodebuild -project ios/YaMusic.xcodeproj -scheme YaMusic -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build`
-- Mac: `scripts/build-mac.sh [--run] [-- <launch args>]`.
+- Mac: `scripts/build-mac.sh [--run] [-- <launch args>]` (Debug); `scripts/install-mac.sh [--open]`
+  builds Release and installs into /Applications. Apple silicon only (the core has no x86_64 slice).
 - Icons: `swift scripts/make-icon.swift` regenerates both asset catalogs.
 - Never boot the iOS Simulator (owner's rule): verify on the device or by compiling.
 
