@@ -1,0 +1,82 @@
+name: YaMusicMac
+options:
+  bundleIdPrefix: az.pqh
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: ru
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    # Set per machine: scripts read YM_TEAM_ID from local.env (see README).
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  # UniFFI-generated Swift bindings in their own module, NOT main-actor isolated by default
+  # (the app target is): FFI calls and record lifting stay off the main thread. Same as iOS.
+  YmBindings:
+    type: framework
+    platform: macOS
+    sources:
+      - path: ../ios/YaMusic/Core/Generated
+    dependencies:
+      - framework: ../ios/Frameworks/YmCore.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: az.pqh.yamusic.mac.bindings
+        MACH_O_TYPE: staticlib
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        SWIFT_STRICT_CONCURRENCY: minimal
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: YES
+  YaMusicMac:
+    type: application
+    platform: macOS
+    sources:
+      # Shared core (also built for iOS) and the few platform-neutral UI pieces.
+      - path: ../ios/YaMusic/Core
+        excludes:
+          - Generated
+      - path: ../ios/YaMusic/UI/Components/WaveBackground.swift
+      - path: ../ios/YaMusic/UI/Components/WaveRenderer.swift
+      - path: ../ios/YaMusic/UI/Components/CoverImage.swift
+      - path: ../ios/YaMusic/UI/Components/CoverPalette.swift
+      - path: ../ios/YaMusic/UI/Components/Theme.swift
+      - path: ../ios/YaMusic/Resources/Shaders
+      # Mac-only UI.
+      - path: YaMusicMac
+    dependencies:
+      - target: YmBindings
+        embed: false
+      - framework: ../ios/Frameworks/YmCore.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_NAME: Музыка
+        PRODUCT_MODULE_NAME: YaMusicMac
+        PRODUCT_BUNDLE_IDENTIFIER: az.pqh.yamusic.mac
+        MTL_FAST_MATH: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_APP_SANDBOX: NO
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: YaMusicMac/Resources/Info.plist
+      properties:
+        CFBundleName: Музыка
+        CFBundleDisplayName: Музыка
+        # Russian-only UI: system-provided strings (menus, Search, Cancel…) in Russian too.
+        CFBundleDevelopmentRegion: ru
+        CFBundleLocalizations: [ru]
+        LSApplicationCategoryType: public.app-category.music
+        NSHumanReadableCopyright: ""
+schemes:
+  YaMusicMac:
+    build:
+      targets:
+        YaMusicMac: all
+    run:
+      config: Debug

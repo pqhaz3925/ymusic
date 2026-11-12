@@ -1,0 +1,9 @@
+core/target/
+ios/build/
+ios/*.xcodeproj/
+ios/Frameworks/
+.DS_Store
+mac/build/
+mac/*.xcodeproj/
+local.env
+screens/

@@ -1,0 +1,87 @@
+name: YaMusic
+options:
+  bundleIdPrefix: az.pqh
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: ru
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    # Set per machine: scripts read YM_TEAM_ID from local.env (see README).
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  # UniFFI-generated Swift bindings live in their own module so they are NOT main-actor
+  # isolated by default (the app target is): FFI calls and record lifting stay off the main thread.
+  YmBindings:
+    type: framework
+    platform: iOS
+    sources:
+      - path: YaMusic/Core/Generated
+    dependencies:
+      - framework: Frameworks/YmCore.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: az.pqh.yamusic.bindings
+        MACH_O_TYPE: staticlib
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        SWIFT_STRICT_CONCURRENCY: minimal
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: YES
+  YaMusic:
+    type: application
+    platform: iOS
+    sources:
+      - path: YaMusic
+        excludes:
+          - Core/Generated
+    dependencies:
+      - target: YmBindings
+        embed: false
+      - framework: Frameworks/YmCore.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: az.pqh.yamusic
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        MTL_FAST_MATH: YES
+    info:
+      path: YaMusic/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Музыка
+        # The UI is Russian-only: make system-provided strings (Search, Back, Done…) Russian too.
+        CFBundleDevelopmentRegion: ru
+        CFBundleLocalizations: [ru]
+        UILaunchScreen: {}
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+  YaMusicUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: YaMusicUITests
+    dependencies:
+      - target: YaMusic
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: az.pqh.yamusic.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+        TEST_TARGET_NAME: YaMusic
+schemes:
+  YaMusic:
+    build:
+      targets:
+        YaMusic: all
+        YaMusicUITests: [test]
+    test:
+      targets:
+        - YaMusicUITests
