@@ -25,21 +25,6 @@ struct WaveConfig: Equatable {
     var dim: Float = 1
 }
 
-/// Must match `WaveUniforms` in WaveBlob.metal.
-nonisolated struct WaveUniforms {
-    var spectrum = SIMD4<Float>.zero
-    var lab0 = SIMD4<Float>.zero
-    var lab1 = SIMD4<Float>.zero
-    var lab2 = SIMD4<Float>.zero
-    var lab3 = SIMD4<Float>.zero
-    var size = SIMD2<Float>.zero
-    var touch = SIMD2<Float>.zero
-    var time: Float = 0
-    var touchAmt: Float = 0
-    var intensity: Float = 0.6
-    var dim: Float = 1
-}
-
 // MARK: - Shared GPU objects
 
 /// Device, queue and pipeline, created once. `nil` when Metal isn't available.
@@ -67,74 +52,20 @@ final class WaveMetal {
     }
 }
 
-// MARK: - Smoothing
-
-/// Per-frame easing of everything that feeds the shader, so nothing ever jumps.
-struct WaveSmoother {
-    private(set) var time: Double = 0
-    private(set) var spectrum = SIMD4<Float>.zero
-    private(set) var intensity: Float = 0.6
-    private(set) var colors: [SIMD3<Float>] = []
-    private(set) var touchAmount: Float = 0
-    var touchPoint = CGPoint.zero
-    var touchTarget: Float = 0
-
-    /// Still frames skip the cross-fade.
-    mutating func snap(palette: [SIMD3<Float>], isPlaying: Bool) {
-        colors = palette
-        intensity = isPlaying ? 1 : 0.55
-        spectrum = .zero
-        touchAmount = 0
-    }
-
-    mutating func step(dt rawDt: Double, spectrum target: SIMD4<Float>, isPlaying: Bool, palette: [SIMD3<Float>]) {
-        let dt = Float(min(max(rawDt, 0), 0.1))
-        // Exponential smoothing; `rate` ≈ 1/time-constant in seconds.
-        func k(_ rate: Float) -> Float { 1 - exp(-rate * dt) }
-
-        // Calmer motion when paused.
-        time = (time + Double(dt) * (isPlaying ? 1.0 : 0.45)).truncatingRemainder(dividingBy: 10_000)
-
-        // Fast attack, slower release: punchy but no flicker.
-        let rising = target .> spectrum
-        let attack = SIMD4<Float>(repeating: k(14)), decay = SIMD4<Float>(repeating: k(4))
-        spectrum += (target - spectrum) * attack.replacing(with: decay, where: .!rising)
-
-        intensity += ((isPlaying ? 1 : 0.55) - intensity) * k(2)
-
-        // ~1 s palette cross-fade.
-        if colors.count != palette.count { colors = palette }
-        for i in colors.indices { colors[i] += (palette[i] - colors[i]) * k(3.3) }
-
-        // Spring-ish touch: quick in, soft decay out.
-        touchAmount += (touchTarget - touchAmount) * k(touchTarget > touchAmount ? 10 : 2.5)
-    }
-}
-
-/// sRGB (gamma-encoded) -> OKLab, done on the CPU for the 4 palette entries instead of per pixel.
-nonisolated func waveOKLab(_ c: SIMD3<Float>) -> SIMD4<Float> {
-    func lin(_ v: Float) -> Float { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
-    let r = lin(c.x), g = lin(c.y), b = lin(c.z)
-    let l = cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
-    let m = cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
-    let s = cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
-    return SIMD4(0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
-                 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
-                 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
-                 0)
-}
-
 // MARK: - View
 
-/// Hosts the CAMetalLayer and paces rendering.
+/// Hosts the CAMetalLayer and paces rendering. The motion itself is `WaveSmoother`
+/// (WaveDynamics.swift); this view only decides when a frame is worth drawing.
 ///
 /// Cost model, and why it is built this way:
-/// - The drawable is ~0.3 px per point (about 120×200 px for the home hero), i.e. ~25 k
-///   fragments a frame instead of ~2.5 M at native resolution. Core Animation upscales it.
-/// - Frames come from a `CADisplayLink` capped at 30 Hz while music plays and 15 Hz when idle
-///   (half that in eco mode / Low Power Mode / when the device is warm).
+/// - On the phone the drawable is half a pixel per point (about 200×390 px for the home hero),
+///   i.e. ~75 k fragments a frame instead of ~2.5 M at native resolution; Core Animation
+///   upscales it. A Mac has the GPU to spare and gets one pixel per point.
+/// - Frames come from a `CADisplayLink`: 30 Hz while music plays and 15 Hz when idle on the
+///   phone, 60 / 30 Hz on a Mac (half that in eco mode / Low Power Mode / when the device is warm).
 /// - The link only exists while the view is visible, the app is active and motion is allowed.
-///   Otherwise a single still frame is drawn and nothing runs at all.
+///   Otherwise a single still frame is drawn and nothing runs at all. When playback stops the
+///   picture is given a moment to come to rest first, so it never freezes mid-beat.
 final class WaveLayerView: WavePlatformView {
     var spectrum: SpectrumSource? {
         didSet { if spectrum !== oldValue { stopWatching(oldValue); refresh() } }
@@ -254,8 +185,12 @@ final class WaveLayerView: WavePlatformView {
 
     private func resizeDrawable() {
         guard let l = metalLayer, bounds.width > 1, bounds.height > 1 else { return }
-        // ~0.3 px per point, clamped so tiny and huge views both stay sane.
-        let w = min(max(bounds.width * 0.3, 64), 220)
+        // Clamped so tiny and huge views both stay sane.
+        #if canImport(UIKit)
+        let w = min(max(bounds.width * 0.5, 64), 256)
+        #else
+        let w = min(max(bounds.width, 64), 1600)
+        #endif
         let size = CGSize(width: w.rounded(), height: max(1, (w * bounds.height / bounds.width).rounded()))
         if l.drawableSize != size {
             l.drawableSize = size
@@ -275,16 +210,29 @@ final class WaveLayerView: WavePlatformView {
             || ProcessInfo.processInfo.thermalState == .fair
     }
 
+    /// On screen, and neither the user nor the device objects to motion.
+    private var mayAnimate: Bool {
+        guard visible, !config.reduceMotion else { return false }
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious, .critical: return false
+        default: return true
+        }
+    }
+
     /// 0 = don't animate.
     private var targetFPS: Float {
-        guard visible, !config.reduceMotion, config.motion != .still else { return 0 }
-        switch ProcessInfo.processInfo.thermalState {
-        case .serious, .critical: return 0
-        default: break
-        }
+        guard mayAnimate, config.motion != .still else { return 0 }
+        #if canImport(UIKit)
         let fps: Float = config.isPlaying ? 30 : 15
+        #else
+        let fps: Float = config.isPlaying ? 60 : 30
+        #endif
         return throttled ? fps / 2 : fps
     }
+
+    /// The animation was just switched off (pause, static mode) while the picture is still
+    /// in motion: keep drawing until it has come to rest.
+    private var settling: Bool { link != nil && mayAnimate && !smoother.isAtRest }
 
     /// Re-evaluate whether to run the display link, after any input changed.
     private func refresh() {
@@ -292,6 +240,9 @@ final class WaveLayerView: WavePlatformView {
         if fps > 0 {
             startLink(fps: fps)
             startWatching()
+        } else if settling {
+            startLink(fps: 30)
+            stopWatching(spectrum)
         } else {
             stopLink()
             stopWatching(spectrum)
@@ -333,13 +284,17 @@ final class WaveLayerView: WavePlatformView {
     // MARK: Frames
 
     fileprivate func tick(_ link: CADisplayLink) {
-        guard targetFPS > 0 else { refresh(); return }
+        let animating = targetFPS > 0
+        guard animating || settling else { refresh(); return }
         let now = link.targetTimestamp
         let dt = lastTimestamp > 0 ? now - lastTimestamp : 1.0 / 30
         lastTimestamp = now
+        let playing = animating && config.isPlaying
+        // This frame is on screen a little after its target time: show what will be sounding then.
+        let lead = min(max(now - CACurrentMediaTime(), 0), 0.05) + 0.012
         smoother.step(dt: dt,
-                      spectrum: config.isPlaying ? (spectrum?.snapshot() ?? .zero) : .zero,
-                      isPlaying: config.isPlaying,
+                      frame: playing ? (spectrum?.snapshot(lead: lead) ?? .zero) : .zero,
+                      isPlaying: playing,
                       palette: config.palette)
         draw()
     }
@@ -372,17 +327,9 @@ final class WaveLayerView: WavePlatformView {
 
         let size = l.drawableSize
         let sx = Float(size.width / max(bounds.width, 1)), sy = Float(size.height / max(bounds.height, 1))
-        var u = WaveUniforms()
-        u.spectrum = smoother.spectrum
-        u.lab0 = waveOKLab(smoother.colors[0])
-        u.lab1 = waveOKLab(smoother.colors[1])
-        u.lab2 = waveOKLab(smoother.colors[2])
-        u.lab3 = waveOKLab(smoother.colors[3])
+        var u = smoother.uniforms
         u.size = SIMD2(Float(size.width), Float(size.height))
         u.touch = SIMD2(Float(smoother.touchPoint.x) * sx, Float(smoother.touchPoint.y) * sy)
-        u.time = Float(smoother.time)
-        u.touchAmt = smoother.touchAmount
-        u.intensity = smoother.intensity
         u.dim = config.dim
 
         let pass = MTLRenderPassDescriptor()

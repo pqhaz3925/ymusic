@@ -12,7 +12,7 @@ UI language is Russian; code comments are English.
   `probe` (what streams the API hands out), `dbg_*`.
 - `ios/` — XcodeGen project (`project.yml`). `YaMusic/Core` is shared with the Mac app and must
   stay cross-platform (`#if os(iOS)` / `canImport(UIKit)`); `YaMusic/UI` is iPhone-only except
-  `UI/Components/{WaveBackground,WaveRenderer,CoverImage,Theme}.swift` and `Resources/Shaders`.
+  `UI/Components/{WaveBackground,WaveRenderer,WaveDynamics,CoverImage,CoverPalette,Theme}.swift` and `Resources/Shaders`.
 - `mac/` — XcodeGen project for the Mac app (`YaMusicMac/` = Mac-only UI; sources of `ios/YaMusic/Core` by path).
 - `scripts/` — build / deploy / measure helpers.
 
@@ -44,10 +44,13 @@ UI language is Russian; code comments are English.
   `lossless` FLAC ~940 — all fast-start MP4 (measured). The controller lowers the *requested*
   quality on stalls / low measured throughput and raises it again when the link measures healthy
   twice; each new track simply asks for `quality.effective`.
-- **Nothing may run per frame in SwiftUI.** The wave backdrop is a tiny (~0.3 px/pt) `CAMetalLayer`
-  drawable on its own display link (`WaveRenderer.swift`), paused when hidden / backgrounded / hot;
-  band energies go through `SpectrumSource` (a lock, not observation) and the FFT runs only while a
-  visualiser is on screen. No `TimelineView`, timers or repeat-forever animations in views; the
+- **Nothing may run per frame in SwiftUI.** The wave backdrop is a small `CAMetalLayer` drawable
+  (0.5 px/pt on the phone, 1 px/pt on a Mac) on its own display link (`WaveRenderer.swift`), paused
+  when hidden / backgrounded / hot. The analyser (`SpectrumAnalyzer`: bands, loudness, kick and
+  hat onsets) stamps its results with media time into `SpectrumSource` (a lock, not observation);
+  the renderer reads "what sounds now" from it, and the FFT runs only while a visualiser is on
+  screen. `WaveDynamics.swift` turns those into motion: whatever bends the picture's geometry must
+  be fed slow or eased values, or the shapes twitch. No `TimelineView`, timers or repeat-forever animations in views; the
   player publishes `elapsed` twice a second and only while the app is in the foreground.
 - **My Wave tuning** (`WaveTuning` in `Core/Models.swift`): activity / character / mood / language
   travel inside the station id as extra seeds (`user:onyourwave,settingMoodEnergy:calm`); the core

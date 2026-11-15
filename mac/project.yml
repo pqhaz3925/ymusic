@@ -45,6 +45,7 @@ targets:
           - Generated
       - path: ../ios/YaMusic/UI/Components/WaveBackground.swift
       - path: ../ios/YaMusic/UI/Components/WaveRenderer.swift
+      - path: ../ios/YaMusic/UI/Components/WaveDynamics.swift
       - path: ../ios/YaMusic/UI/Components/CoverImage.swift
       - path: ../ios/YaMusic/UI/Components/CoverPalette.swift
       - path: ../ios/YaMusic/UI/Components/Theme.swift

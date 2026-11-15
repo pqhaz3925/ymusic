@@ -145,7 +145,7 @@ struct HomeHero: View {
                 .frame(height: HomeScreen.heroHeight + topInset, alignment: .top)
                 .clipped()
                 .overlay(alignment: .bottom) {
-                    LinearGradient(colors: [.clear, Color(nsColor: .windowBackgroundColor)],
+                    LinearGradient(colors: [Theme.background.opacity(0), Theme.background],
                                    startPoint: .top, endPoint: .bottom)
                         .frame(height: 140)
                 }

@@ -85,8 +85,8 @@ final class Player {
     private let settings: AppSettings
     private let avPlayer = AVPlayer()
     private let nowPlaying = NowPlaying()
-    /// Tells the spectrum analysers (audio thread) where the playhead is.
-    private let playhead = PlayheadClock()
+    /// Tells whoever draws the spectrum where the playhead is.
+    private var playhead: PlayheadClock { spectrumSource.clock }
 
     // Current item.
     @ObservationIgnored private var item: AVPlayerItem?
@@ -1052,7 +1052,7 @@ final class Player {
     /// the track just plays without it. Throws when the asset itself can't be read.
     private func spectrumMix(for asset: AVURLAsset) async throws -> AVAudioMix? {
         guard let track = try await asset.loadTracks(withMediaType: .audio).first else { return nil }
-        return SpectrumTap.audioMix(for: track, publishingTo: spectrumSource, clock: playhead)
+        return SpectrumTap.audioMix(for: track, publishingTo: spectrumSource)
     }
 
     // MARK: System integration

@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The "My Wave" Metal backdrop for the Mac hero, over the shared `WaveLayerView`.
 ///
-/// Unlike the iOS `WaveBackground` it never animates while nothing plays: a paused wave is a
-/// single still frame, so an idle window costs nothing. Its inputs are plain values behind an
+/// Unlike the iOS `WaveBackground` it never animates while nothing plays: a paused wave comes
+/// to rest and stays a single still frame, so an idle window costs nothing. Its inputs are plain values behind an
 /// equality check: the Metal view is only touched when one of them changes.
 struct WaveBackdrop: View, Equatable {
     var isPlaying: Bool

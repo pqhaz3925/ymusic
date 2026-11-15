@@ -7,9 +7,8 @@ import MediaToolbox
 nonisolated enum SpectrumTap {
     /// Audio mix carrying the tap for `track`, or `nil` when the tap can't be created —
     /// playback then simply goes on without feeding the visualiser.
-    static func audioMix(for track: AVAssetTrack, publishingTo source: SpectrumSource,
-                         clock: PlayheadClock) -> AVAudioMix? {
-        let analyzer = SpectrumAnalyzer(source: source, clock: clock)
+    static func audioMix(for track: AVAssetTrack, publishingTo source: SpectrumSource) -> AVAudioMix? {
+        let analyzer = SpectrumAnalyzer(source: source)
         // Lifetime: `init` (always called inside Create) takes one reference for the tap's
         // storage and `finalize` (always paired with it) drops it. Nothing else owns the
         // analyser, so it lives exactly as long as the tap, however fast items are replaced.
